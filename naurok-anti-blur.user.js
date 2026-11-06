@@ -1,39 +1,42 @@
 // ==UserScript==
 // @name         NaUrok Anti-Blur & Always Active
 // @namespace    http://tampermonkey.net/
-// @version      1.1
-// @description  Блокує відстеження втрати фокусу та згортання вкладки на На Урок
-// @author       You
+// @version      1.2
+// @description  Блокує відстеження втрати фокусу та згортання вкладки
 // @match        *://*.naurok.ua/*
 // @run-at       document-start
 // @grant        none
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
 
-    // 1. Фіксуємо стан сторінки як «завжди видима та в фокусі»
-    Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
-    Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
-    Object.defineProperty(document, 'hasFocus', { value: () => true, configurable: true });
-
-    // 2. Блокуємо події втрати фокусу на рівні перехоплення
-    const blockEvents = function(e) {
-        if (['visibilitychange', 'blur', 'mouseleave', 'pagehide', 'webkitvisibilitychange'].includes(e.type)) {
-            e.stopImmediatePropagation();
-            e.stopPropagation();
-            e.preventDefault();
-        }
+    const def = (obj, prop, val) => {
+        try { Object.defineProperty(obj, prop, { get: () => val, configurable: true }); } catch (e) {}
     };
 
-    const events = ['visibilitychange', 'blur', 'mouseleave', 'pagehide', 'webkitvisibilitychange'];
-    events.forEach(eventName => {
-        window.addEventListener(eventName, blockEvents, true);
-        document.addEventListener(eventName, blockEvents, true);
-    });
+    def(document, 'hidden', false);
+    def(document, 'webkitHidden', false);
+    def(document, 'mozHidden', false);
+    def(document, 'visibilityState', 'visible');
+    def(document, 'webkitVisibilityState', 'visible');
+    try {
+        Object.defineProperty(document, 'hasFocus', { value: () => true, configurable: true });
+    } catch (e) {}
 
-    // 3. Запобігаємо перепризначенню обробників через властивості
-    window.onblur = null;
-    document.onblur = null;
-    document.onvisibilitychange = null;
+    const names = ['visibilitychange', 'webkitvisibilitychange', 'pagehide',
+                   'blur', 'mouseleave', 'freeze'];
+
+    const isRoot = t => t === window || t === document || t === document.documentElement;
+
+    const handler = e => {
+        // блокуємо лише події самого вікна/документа, а не окремих елементів
+        if (isRoot(e.target)) e.stopImmediatePropagation();
+    };
+
+    names.forEach(n => {
+        window.addEventListener(n, handler, true);
+        document.addEventListener(n, handler, true);
+    });
 })();
+
